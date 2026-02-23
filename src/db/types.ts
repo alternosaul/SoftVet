@@ -28,7 +28,7 @@ export interface Client {
 
 // Pet Model
 export interface Pet {
-  id?: number // Auto-incremented by Dexie
+  id?: number
   clientId: number
   name: string
   species: 'dog' | 'cat' | 'bird' | 'rabbit' | 'hamster' | 'fish' | 'reptile' | 'other'
@@ -36,9 +36,14 @@ export interface Pet {
   gender: 'male' | 'female' | 'unknown'
   birthDate: string
   weight: number
+  height?: number
   color: string
   microchipId: string
   photoUrl: string
+  treatment?: string
+  lastSurgery?: string
+  allergies?: string
+  medicalNotes?: string
   notes: string
   createdAt: string
   updatedAt: string
@@ -46,21 +51,81 @@ export interface Pet {
 
 // Appointment Model
 export interface Appointment {
-  id?: number // Auto-incremented by Dexie
+  id?: number
   petId: number
   clientId: number
   date: string
   time: string
-  duration: number // in minutes
+  duration: number
   type: 'consultation' | 'vaccination' | 'surgery' | 'grooming' | 'emergency' | 'follow-up'
   status: 'scheduled' | 'confirmed' | 'in-progress' | 'completed' | 'cancelled' | 'no-show'
   veterinarian: string
   notes: string
+  totalAmount?: number
+  amountPaid?: number
   googleCalendarEventId?: string
   emailSent?: boolean
   reminderSent?: boolean
   createdAt: string
   updatedAt: string
+}
+
+// Inventory Model (medications and clinic items)
+export interface InventoryItem {
+  id?: number
+  name: string
+  type: 'medication' | 'item'
+  description?: string
+  quantity: number
+  unit?: string
+  price: number
+  photoUrl?: string
+  sku?: string
+  createdAt?: string
+  updatedAt?: string
+}
+
+// Appointment attachment (PDFs, images - medical studies, X-rays)
+export interface AppointmentAttachment {
+  id?: number
+  appointmentId: number
+  fileUrl: string
+  fileName: string
+  fileType?: string
+  createdAt?: string
+}
+
+// Sale item (medication/item sold in an appointment)
+export interface SaleItem {
+  id?: number
+  appointmentId: number
+  inventoryId: number
+  quantity: number
+  unitPrice: number
+  createdAt?: string
+}
+
+// Medical record - historial por cita
+export interface MedicalRecord {
+  id?: number
+  appointmentId: number
+  petId: number
+  symptoms?: string
+  diagnosis?: string
+  treatment?: string
+  notes?: string
+  createdAt?: string
+}
+
+// Vaccine tracking
+export interface Vaccine {
+  id?: number
+  petId: number
+  name: string
+  dateAdministered: string
+  nextDueDate?: string
+  notes?: string
+  createdAt?: string
 }
 
 // Settings Model
@@ -93,3 +158,6 @@ export type CreateUserInput = Omit<User, 'id'>
 
 // Type for creating a new setting (without id)
 export type CreateSettingInput = Omit<Setting, 'id'>
+
+export type CreateInventoryInput = Omit<InventoryItem, 'id' | 'createdAt' | 'updatedAt'>
+export type UpdateInventoryInput = Partial<CreateInventoryInput>

@@ -1,11 +1,27 @@
-import { useState } from 'react'
+import { useMemo } from 'react'
 import FullCalendar from '@fullcalendar/react'
 import dayGridPlugin from '@fullcalendar/daygrid'
 import timeGridPlugin from '@fullcalendar/timegrid'
 import interactionPlugin from '@fullcalendar/interaction'
+import { useAppointmentStore } from '../stores/appointmentStore'
 
 export default function Calendar() {
-  const [events] = useState([])
+  const { appointments } = useAppointmentStore()
+
+  // Map appointments to FullCalendar event format
+  const events = useMemo(() => {
+    return appointments.map((apt) => {
+      const start = new Date(`${apt.date}T${apt.time}`)
+      const end = new Date(start.getTime() + (apt.duration || 30) * 60 * 1000)
+      return {
+        id: String(apt.id),
+        title: `${apt.type} - ${apt.veterinarian}`,
+        start: start.toISOString(),
+        end: end.toISOString(),
+        extendedProps: { status: apt.status }
+      }
+    })
+  }, [appointments])
 
   return (
     <div className="space-y-6">

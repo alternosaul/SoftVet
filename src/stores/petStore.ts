@@ -38,8 +38,9 @@ export const usePetStore = create<PetState>((set) => ({
       const pets = await getAllPets()
       set({ pets, isLoading: false })
     } catch (error) {
+      const msg = error instanceof Error ? error.message : 'Failed to fetch pets'
       console.error('Failed to fetch pets:', error)
-      set({ error: 'Failed to fetch pets', isLoading: false })
+      set({ error: msg, isLoading: false })
     }
   },
   
@@ -58,9 +59,11 @@ export const usePetStore = create<PetState>((set) => ({
     set({ isLoading: true, error: null })
     try {
       const id = await dbAddPet(petData)
-      // Fetch updated list
-      const pets = await getAllPets()
-      set({ pets, isLoading: false })
+      const now = new Date().toISOString()
+      // Add to state immediately (avoids slow refetch), refresh in background
+      const newPet: Pet = { id, ...petData, createdAt: now, updatedAt: now } as Pet
+      set((state) => ({ pets: [newPet, ...state.pets], isLoading: false }))
+      getAllPets().then((pets) => set({ pets })).catch(() => {})
       return id
     } catch (error) {
       console.error('Failed to add pet:', error)

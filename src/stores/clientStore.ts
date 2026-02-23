@@ -36,8 +36,9 @@ export const useClientStore = create<ClientState>((set) => ({
       const clients = await getAllClients()
       set({ clients, isLoading: false })
     } catch (error) {
+      const msg = error instanceof Error ? error.message : 'Failed to fetch clients'
       console.error('Failed to fetch clients:', error)
-      set({ error: 'Failed to fetch clients', isLoading: false })
+      set({ error: msg, isLoading: false })
     }
   },
   

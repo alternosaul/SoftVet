@@ -71,8 +71,9 @@ export const useAppointmentStore = create<AppointmentState>((set, get) => ({
       const appointments = await getAllAppointments()
       set({ appointments, isLoading: false })
     } catch (error) {
+      const msg = error instanceof Error ? error.message : 'Failed to fetch appointments'
       console.error('Failed to fetch appointments:', error)
-      set({ error: 'Failed to fetch appointments', isLoading: false })
+      set({ error: msg, isLoading: false })
     }
   },
   

@@ -1,28 +1,115 @@
-import { PawPrint } from 'lucide-react'
+// Login page - Email/password and optional Google (Supabase Auth)
 
-const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID || ''
-const REDIRECT_URI = `${window.location.origin}/auth/callback`
-
-const SCOPES = [
-  'openid',
-  'email',
-  'profile',
-  'https://www.googleapis.com/auth/calendar.events',
-  'https://www.googleapis.com/auth/gmail.send',
-  'https://www.googleapis.com/auth/gmail.readonly'
-].join(' ')
+import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
+import { PawPrint, Mail, Lock, Eye, EyeOff } from 'lucide-react'
+import { supabase, isSupabaseConfigured } from '../lib/supabase'
+import { useAuthStore } from '../stores/authStore'
 
 export default function Login() {
-  const handleGoogleLogin = () => {
-    const authUrl = new URL('https://accounts.google.com/o/oauth2/v2/auth')
-    authUrl.searchParams.set('client_id', GOOGLE_CLIENT_ID)
-    authUrl.searchParams.set('redirect_uri', REDIRECT_URI)
-    authUrl.searchParams.set('response_type', 'code')
-    authUrl.searchParams.set('scope', SCOPES)
-    authUrl.searchParams.set('access_type', 'offline')
-    authUrl.searchParams.set('prompt', 'consent')
-    
-    window.location.href = authUrl.toString()
+  const navigate = useNavigate()
+  const setAuth = useAuthStore((s) => s.setAuth)
+  const [isSignUp, setIsSignUp] = useState(false)
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
+  const [fullName, setFullName] = useState('')
+  const [showPassword, setShowPassword] = useState(false)
+  const [loading, setLoading] = useState(false)
+  const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
+
+  const handleEmailLogin = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!isSupabaseConfigured()) {
+      setMessage({ type: 'error', text: 'Supabase no configurado. Revisa .env (VITE_SUPABASE_URL, VITE_SUPABASE_ANON_KEY)' })
+      return
+    }
+    setLoading(true)
+    setMessage(null)
+
+    // Timeout wrapper - Supabase can hang if unreachable (network/firewall/free tier paused)
+    const withTimeout = (promise: Promise<unknown>, ms: number) => {
+      const timeout = new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error('Connection timeout. Check your internet and try again.')), ms))
+      return Promise.race([promise, timeout])
+    }
+
+    try {
+      if (isSignUp) {
+        const signUpPromise = supabase.auth.signUp({
+          email,
+          password,
+          options: { data: { full_name: fullName } }
+        })
+        const { data, error } = (await withTimeout(signUpPromise, 15000)) as Awaited<typeof signUpPromise>
+        if (error) throw error
+        if (data.session) {
+          setAuth({
+            id: data.user.id,
+            email: data.user.email || '',
+            name: data.user.user_metadata?.full_name || data.user.email || 'User',
+            picture: data.user.user_metadata?.avatar_url
+          })
+          navigate('/dashboard')
+        } else {
+          setMessage({
+            type: 'success',
+            text: 'Account created! Check your email to confirm, or sign in now.'
+          })
+          setIsSignUp(false)
+        }
+      } else {
+        const signInPromise = supabase.auth.signInWithPassword({ email, password })
+        const { data, error } = (await withTimeout(signInPromise, 15000)) as Awaited<typeof signInPromise>
+        if (error) throw error
+        // Set auth state directly from response (don't rely on onAuthStateChange)
+        if (data?.session?.user) {
+          setAuth({
+            id: data.user.id,
+            email: data.user.email || '',
+            name: data.user.user_metadata?.full_name || data.user.email || 'User',
+            picture: data.user.user_metadata?.avatar_url
+          })
+          navigate('/dashboard')
+        } else {
+          throw new Error('No session returned')
+        }
+      }
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Error al iniciar sesión. Verifica conexión.'
+      // Mensajes más claros para errores comunes de Supabase
+      let displayMsg = msg
+      if (msg.toLowerCase().includes('email not confirmed')) {
+        displayMsg = 'Confirma tu email. Revisa tu bandeja de entrada y haz clic en el enlace de verificación.'
+      } else if (msg.toLowerCase().includes('invalid login')) {
+        displayMsg = 'Email o contraseña incorrectos. Verifica tus credenciales.'
+      } else if (msg.toLowerCase().includes('invalid') && msg.toLowerCase().includes('credentials')) {
+        displayMsg = 'Email o contraseña incorrectos. Verifica tus credenciales.'
+      } else if (msg.toLowerCase().includes('fetch') || msg.toLowerCase().includes('network') || msg.toLowerCase().includes('timeout')) {
+        displayMsg = 'Error de conexión. Verifica tu internet. Si usas Supabase free tier, el proyecto puede estar pausado (despiértalo en el dashboard).'
+      }
+      setMessage({
+        type: 'error',
+        text: displayMsg
+      })
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleGoogleLogin = async () => {
+    setLoading(true)
+    setMessage(null)
+    try {
+      const { error } = await supabase.auth.signInWithOAuth({ provider: 'google' })
+      if (error) throw error
+      // User will be redirected to Google, then back to /auth/callback
+    } catch (err) {
+      setMessage({
+        type: 'error',
+        text: err instanceof Error ? err.message : 'Google sign-in failed'
+      })
+      setLoading(false)
+    }
   }
 
   return (
@@ -37,14 +124,113 @@ export default function Login() {
           <p className="text-gray-500 mt-2">Veterinary Clinic Management System</p>
         </div>
 
+        {!isSupabaseConfigured() && (
+          <div className="mb-4 p-4 bg-amber-50 border border-amber-200 rounded-lg text-amber-800 text-sm">
+            Supabase no está configurado. Añade VITE_SUPABASE_URL y VITE_SUPABASE_ANON_KEY en tu archivo .env
+          </div>
+        )}
+
         {/* Login Card */}
         <div className="bg-white rounded-2xl shadow-xl p-8">
-          <h2 className="text-xl font-semibold text-gray-800 mb-2">Welcome Back</h2>
-          <p className="text-gray-500 mb-6">Sign in to manage your clinic</p>
+          <h2 className="text-xl font-semibold text-gray-800 mb-2">
+            {isSignUp ? 'Create Account' : 'Welcome Back'}
+          </h2>
+          <p className="text-gray-500 mb-6">
+            {isSignUp ? 'Sign up to manage your clinic' : 'Sign in to manage your clinic'}
+          </p>
 
+          {/* Message */}
+          {message && (
+            <div
+              className={`mb-4 p-3 rounded-lg text-sm ${
+                message.type === 'success'
+                  ? 'bg-green-50 text-green-700'
+                  : 'bg-red-50 text-red-700'
+              }`}
+            >
+              {message.text}
+            </div>
+          )}
+
+          {/* Email/Password Form */}
+          <form onSubmit={handleEmailLogin} className="space-y-4">
+            {isSignUp && (
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Full Name</label>
+                <div className="relative">
+                  <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                  <input
+                    type="text"
+                    value={fullName}
+                    onChange={(e) => setFullName(e.target.value)}
+                    placeholder="Your name"
+                    className="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500"
+                    required={isSignUp}
+                  />
+                </div>
+              </div>
+            )}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
+              <div className="relative">
+                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                <input
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="you@example.com"
+                  className="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500"
+                  required
+                />
+              </div>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Password</label>
+              <div className="relative">
+                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                <input
+                  type={showPassword ? 'text' : 'password'}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="••••••••"
+                  className="w-full pl-10 pr-12 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500"
+                  required
+                  minLength={6}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                >
+                  {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                </button>
+              </div>
+              {isSignUp && (
+                <p className="text-xs text-gray-500 mt-1">Minimum 6 characters</p>
+              )}
+            </div>
+            <button
+              type="submit"
+              disabled={loading}
+              className="w-full py-3 bg-teal-600 text-white font-medium rounded-lg hover:bg-teal-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            >
+              {loading ? 'Please wait...' : isSignUp ? 'Create Account' : 'Sign In'}
+            </button>
+          </form>
+
+          {/* Divider */}
+          <div className="my-6 flex items-center gap-3">
+            <div className="flex-1 h-px bg-gray-200" />
+            <span className="text-sm text-gray-500">or</span>
+            <div className="flex-1 h-px bg-gray-200" />
+          </div>
+
+          {/* Google Sign In */}
           <button
+            type="button"
             onClick={handleGoogleLogin}
-            className="w-full flex items-center justify-center gap-3 px-4 py-3 bg-white border border-gray-200 text-gray-700 font-medium rounded-lg hover:bg-gray-50 transition-colors"
+            disabled={loading}
+            className="w-full flex items-center justify-center gap-3 px-4 py-3 bg-white border border-gray-200 text-gray-700 font-medium rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50"
           >
             <svg className="w-5 h-5" viewBox="0 0 24 24">
               <path
@@ -67,14 +253,38 @@ export default function Login() {
             Continue with Google
           </button>
 
-          <div className="mt-6 pt-6 border-t border-gray-200">
-            <p className="text-sm text-gray-500 text-center">
-              By signing in, you agree to our{' '}
-              <a href="#" className="text-teal-600 hover:underline">Terms of Service</a>
-              {' '}and{' '}
-              <a href="#" className="text-teal-600 hover:underline">Privacy Policy</a>
-            </p>
-          </div>
+          {/* Toggle Sign Up / Sign In */}
+          <p className="mt-6 text-center text-sm text-gray-500">
+            {isSignUp ? (
+              <>
+                Already have an account?{' '}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsSignUp(false)
+                    setMessage(null)
+                  }}
+                  className="text-teal-600 hover:underline font-medium"
+                >
+                  Sign in
+                </button>
+              </>
+            ) : (
+              <>
+                Don't have an account?{' '}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsSignUp(true)
+                    setMessage(null)
+                  }}
+                  className="text-teal-600 hover:underline font-medium"
+                >
+                  Sign up
+                </button>
+              </>
+            )}
+          </p>
         </div>
 
         {/* Features */}
