@@ -4,10 +4,17 @@ import electron from 'vite-plugin-electron'
 import renderer from 'vite-plugin-electron-renderer'
 import path from 'path'
 
+// When building on Vercel, skip Electron (web-only deployment)
+const isVercel = process.env.VERCEL === '1'
+
 export default defineConfig({
   plugins: [
     react(),
-    electron([
+    // Electron plugins only for local/desktop builds, not for Vercel web deploy
+    ...(isVercel
+      ? []
+      : [
+          electron([
       {
         entry: 'electron/main.ts',
         vite: {
@@ -34,7 +41,8 @@ export default defineConfig({
         }
       }
     ]),
-    renderer()
+          renderer()
+        ])
   ],
   resolve: {
     alias: {
