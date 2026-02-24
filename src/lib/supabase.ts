@@ -27,3 +27,12 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
 export function isSupabaseConfigured(): boolean {
   return !!supabaseUrl && !!supabaseAnonKey
 }
+
+// Debug info for "Invalid API key" - safe to show in UI (no secrets)
+export function getSupabaseDebugInfo(): { urlOk: boolean; keyOk: boolean; urlPrefix: string } {
+  return {
+    urlOk: !!supabaseUrl,
+    keyOk: !!supabaseAnonKey,
+    urlPrefix: supabaseUrl ? `${supabaseUrl.slice(0, 30)}...` : '(empty)'
+  }
+}

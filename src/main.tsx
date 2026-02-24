@@ -66,7 +66,8 @@ window.onunhandledrejection = (event) => {
   console.error('Unhandled promise rejection:', event.reason)
 }
 
-ReactDOM.createRoot(document.getElementById('root')!).render(
+const root = document.getElementById('root')!
+ReactDOM.createRoot(root).render(
   <React.StrictMode>
     <BrowserRouter
       future={{
@@ -78,3 +79,8 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
     </BrowserRouter>
   </React.StrictMode>
 )
+
+// Mostrar contenido cuando React y los estilos ya cargaron (evita warning "layout forced")
+requestAnimationFrame(() => {
+  requestAnimationFrame(() => document.body.classList.add('app-ready'))
+})

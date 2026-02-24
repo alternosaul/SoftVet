@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { PawPrint, Mail, Lock, Eye, EyeOff } from 'lucide-react'
-import { supabase, isSupabaseConfigured } from '../lib/supabase'
+import { supabase, isSupabaseConfigured, getSupabaseDebugInfo } from '../lib/supabase'
 import { useAuthStore } from '../stores/authStore'
 
 export default function Login() {
@@ -16,6 +16,7 @@ export default function Login() {
   const [showPassword, setShowPassword] = useState(false)
   const [loading, setLoading] = useState(false)
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
+  const [showDebug, setShowDebug] = useState(false)
 
   const handleEmailLogin = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -25,6 +26,7 @@ export default function Login() {
     }
     setLoading(true)
     setMessage(null)
+    setShowDebug(false)
 
     // Timeout wrapper - Supabase can hang if unreachable (network/firewall/free tier paused)
     const withTimeout = (promise: Promise<unknown>, ms: number) => {
@@ -84,6 +86,9 @@ export default function Login() {
         displayMsg = 'Email o contraseña incorrectos. Verifica tus credenciales.'
       } else if (msg.toLowerCase().includes('invalid') && msg.toLowerCase().includes('credentials')) {
         displayMsg = 'Email o contraseña incorrectos. Verifica tus credenciales.'
+      } else if (msg.toLowerCase().includes('invalid') && (msg.toLowerCase().includes('api') || msg.toLowerCase().includes('key'))) {
+        displayMsg = 'Invalid API key: revisa Vercel → Settings → Environment Variables. URL y anon key deben coincidir con tu proyecto Supabase.'
+        setShowDebug(true)
       } else if (msg.toLowerCase().includes('fetch') || msg.toLowerCase().includes('network') || msg.toLowerCase().includes('timeout')) {
         displayMsg = 'Error de conexión. Verifica tu internet. Si usas Supabase free tier, el proyecto puede estar pausado (despiértalo en el dashboard).'
       }
@@ -127,6 +132,15 @@ export default function Login() {
         {!isSupabaseConfigured() && (
           <div className="mb-4 p-4 bg-amber-50 border border-amber-200 rounded-lg text-amber-800 text-sm">
             Supabase no está configurado. Añade VITE_SUPABASE_URL y VITE_SUPABASE_ANON_KEY en tu archivo .env
+          </div>
+        )}
+
+        {showDebug && (
+          <div className="mb-4 p-4 bg-gray-100 border border-gray-300 rounded-lg text-gray-700 text-xs font-mono">
+            <p className="font-semibold mb-2">Debug (Vercel env vars):</p>
+            <p>URL: {getSupabaseDebugInfo().urlOk ? getSupabaseDebugInfo().urlPrefix : '❌ vacío'}</p>
+            <p>Key: {getSupabaseDebugInfo().keyOk ? '✓ presente' : '❌ vacío'}</p>
+            <p className="mt-2 text-gray-500">Si ambos están OK, la key puede ser incorrecta o de otro proyecto.</p>
           </div>
         )}
 
