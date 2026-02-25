@@ -68,3 +68,32 @@ Sign up with email/password or use Google to log in. New users get demo data (cl
 - **Migrations not run**: Run `001_initial_schema.sql`, then `002_extended_schema.sql`, then `003_full_schema.sql` in Supabase SQL Editor. Without these, the tables do not exist.
 - **RLS / user_id mismatch**: If you inserted data manually via SQL Editor with a different user_id, the app won't show it. Go to Settings → Data and run the UPDATE queries with your User ID.
 - **Session expired**: Try logging out and back in. Click "Reintentar" in the error banner if data fails to load.
+
+## Deploy on Vercel (Production)
+
+If login works locally but not on Vercel, check:
+
+### 1. Environment variables in Vercel
+
+1. Vercel Dashboard → Your Project → **Settings** → **Environment Variables**
+2. Add exactly (names must match):
+   - `VITE_SUPABASE_URL` = your Supabase Project URL
+   - `VITE_SUPABASE_ANON_KEY` = your Supabase anon/public key
+3. **Important**: Assign to **Production** (and **Preview** if you use preview deploys)
+4. Redeploy after adding/changing variables (Deployments → ⋮ → Redeploy)
+
+### 2. Supabase Site URL and Redirect URLs
+
+Supabase must allow your production domain:
+
+1. Supabase Dashboard → **Authentication** → **URL Configuration**
+2. **Site URL**: set to `https://tu-app.vercel.app` (your Vercel URL)
+3. **Redirect URLs**: add:
+   - `https://tu-app.vercel.app/**`
+   - `https://tu-app.vercel.app/auth/callback`
+
+Without this, Supabase may reject auth requests from your production domain.
+
+### 3. Build logs
+
+If the build fails with `[ensure-env] ERROR: Missing required env vars`, the variables are not reaching the build. Verify names and environment scope in Vercel.
