@@ -91,6 +91,9 @@ export default function Login() {
         setShowDebug(true)
       } else if (msg.toLowerCase().includes('fetch') || msg.toLowerCase().includes('network') || msg.toLowerCase().includes('timeout')) {
         displayMsg = 'Error de conexión. Verifica tu internet. Si usas Supabase free tier, el proyecto puede estar pausado (despiértalo en el dashboard).'
+      } else if (msg.includes('401') || msg.includes('unauthorized') || msg.includes('Invalid') || window.location.hostname !== 'localhost') {
+        // En producción (Vercel), mostrar debug y hint de URL Configuration
+        setShowDebug(true)
       }
       setMessage({
         type: 'error',
@@ -137,10 +140,17 @@ export default function Login() {
 
         {showDebug && (
           <div className="mb-4 p-4 bg-gray-100 border border-gray-300 rounded-lg text-gray-700 text-xs font-mono">
-            <p className="font-semibold mb-2">Debug (Vercel env vars):</p>
+            <p className="font-semibold mb-2">Debug (env vars):</p>
             <p>URL: {getSupabaseDebugInfo().urlOk ? getSupabaseDebugInfo().urlPrefix : '❌ vacío'}</p>
             <p>Key: {getSupabaseDebugInfo().keyOk ? '✓ presente' : '❌ vacío'}</p>
-            <p className="mt-2 text-gray-500">Si ambos están OK, la key puede ser incorrecta o de otro proyecto.</p>
+            {window.location.hostname !== 'localhost' && (
+              <div className="mt-3 pt-3 border-t border-gray-300">
+                <p className="font-semibold text-amber-700">Si funciona en local pero no en Vercel:</p>
+                <p className="mt-1">Supabase → Authentication → URL Configuration</p>
+                <p>• Site URL: <code className="bg-gray-200 px-1">https://{window.location.hostname}</code></p>
+                <p>• Redirect URLs: añade <code className="bg-gray-200 px-1">https://{window.location.hostname}/**</code></p>
+              </div>
+            )}
           </div>
         )}
 
